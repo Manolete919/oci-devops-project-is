@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-project-hm
+  namespace: mgr
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devops-project-hm
+  template:
+    metadata:
+      labels:
+        app: devops-project-hm
+    spec:
+      containers:
+      - name: devops-project-hm
+        #image: ${OCIR_HOST}/${OCIR_STORAGE_NAMESPACE}/devops-project/oci-devops-project:${APPLICATION_VERSION}
+        image: iad.ocir.io/id6dibaakt36/devops-project/oci-devops-project-hm:latest
+        imagePullPolicy: Always
+        ports:
+        - name: service-port
+          containerPort: 8090
+          #resources:
+          #limits:
+          #cpu: "250m"
+      #volumes:
+      #- name: sf-conf-secure-vol
+        #secret:
+          #secretName: sf-conf-secure
+      imagePullSecrets:
+      - name: my-docker-reg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-devops-project-hm
+  namespace: mgr
+spec:
+  type: ClusterIP
+  selector:
+    app: devops-project-hm
+  ports:
+    - name: service-ports
+      protocol: TCP
+      port: 8090
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-devops-hm
+  namespace: mgr
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /greetings/cn/actions/
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-devops-project-hm
+            port:
+              number: 8090

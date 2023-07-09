@@ -1,0 +1,72 @@
+version: 0.1
+component: build
+timeoutInSeconds: 10000
+shell: bash
+runAs: root
+failImmediatelyOnError: true
+env:
+  variables:
+    TEST: "some text"
+  #vaultVariables:
+    #key: "secret-id"
+  exportedVariables:
+    - APPLICATION_VERSION
+    #- ARTIFACT_NAME
+    #- ARTIFACT_REPO_OCID
+steps:
+  - type: Command
+    name: "Extract the version of the applicacion"
+    command: |
+      export APPLICATION_VERSION=`echo ${OCI_BUILD_RUN_ID} | rev | cut -c 1-7`
+      echo $APPLICATION_VERSION
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      echo Inside of the working directory OCI_PRIMARY_SOURCE_DIR - Working in `pwd`
+      echo 'All the files in this directory `ls -l`'
+    onFailure:
+      - type: Command
+        command: |
+          echo "Handling the failure"
+        timeoutInSeconds: 400
+      - type: Command
+        name: "Install local JDK17"
+        timeoutInSeconds: 10000
+        command: |
+          cd ~
+          mkdir InstalledSoftware
+          cd InstalledSoftware
+          wget -q https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz
+          tar xf *tar.gz
+          rm *tar.gz
+          ls -l
+          export JAVA_HOME=`echo -n ~/InstalledSoftware/jdk-*`
+          export PATH=$JAVA_HOME/bin:$PATH
+          echo Path is
+          echo $PATH
+          echo JAVA_HOME is
+          echo $JAVA_HOME
+          java -version
+        onFailure:
+          - type: Command
+            timeoutInSeconds: 40
+            command: |
+              echo "Handling Failure"
+              echo "Failure successfully handled"
+            timeoutInSeconds: 400
+            runAs: root
+  
+  - type: Command
+    name: "Generate the application JAR"
+    timeoutInSeconds: 60
+    command: |
+      cd ${OCI_PRIMARY_SOURCE_DIR}/
+      echo Running docker update - Working in `pwd`
+      mvn clean
+      mvn package
+         
+outputArtifacts:
+  - name: app_jar_output
+    type: BINARY
+    location: ${OCI_PRIMARY_SOURCE_DIR}/target/openshift-test-0.0.1-SNAPSHOT.jar
+  - name: deployment_spec
+    type: BINARY
+    location: ${OCI_PRIMARY_SOURCE_DIR}/deployment/artifacts/instance_deployment_spec.yaml

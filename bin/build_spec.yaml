@@ -1,0 +1,43 @@
+version: 0.1
+component: build
+timeoutInSeconds: 10000
+shell: bash
+runAs: root
+failImmediatelyOnError: true
+env:
+  variables:
+    TEST: "some text"
+  #vaultVariables:
+    #key: "secret-id"
+  exportedVariables:
+    - APPLICATION_VERSION
+steps:
+  - type: Command
+    name: "Extract the version of the applicacion"
+    command: |
+      export APPLICATION_VERSION=`echo ${OCI_BUILD_RUN_ID} | rev | cut -c 1-7`
+      echo $APPLICATION_VERSION
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      echo Inside of the working directory OCI_PRIMARY_SOURCE_DIR - Working in `pwd`
+      echo 'All the files in this directory `ls -l`'
+    onFailure:
+      - type: Command
+        command: |
+          echo "Handling the failure"
+        timeoutInSeconds: 400
+  - type: Command
+    name: "Generate the image"
+    timeoutInSeconds: 60
+    command: |
+      cd ${OCI_PRIMARY_SOURCE_DIR}/
+      echo Running docker update - Working in `pwd`
+      docker build  --tag oci-devops-project:latest --file Dockerfile . 
+      echo images are
+      docker images 
+outputArtifacts:
+  - name: oci_devops_project_image
+    type: DOCKER_IMAGE
+    location: oci-devops-project:latest
+  - name: deployment_yaml
+    type: BINARY
+    location: ${OCI_PRIMARY_SOURCE_DIR}/deployment/artifacts/project-deployment.yaml
